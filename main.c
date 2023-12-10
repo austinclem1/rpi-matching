@@ -19,6 +19,8 @@
 #define BUTTON_PIN_RIGHT 22
 #define BUZZER_PIN 12
 
+#define DEBOUNCE_PERIOD_US 10000
+
 #define DEFAULT_PLAYBACK_DELAY 1000
 
 #define MAX_SEQUENCE_LEN 2000
@@ -88,7 +90,7 @@ bool pollInput(InputEvent *ev_out) {
 
 void clearInputEvents() {}
 
-int initGpio() {
+int initLeds() {
     int gpio_chardev_fd, lines_fd;
     struct gpio_v2_line_request request = { 0 };
 
@@ -123,6 +125,48 @@ exit:
     return lines_fd;
 }
 
+int initButtons() {
+    int gpio_chardev_fd, lines_fd;
+    struct gpio_v2_line_request request = { 0 };
+
+    lines_fd = -1;
+    
+    gpio_chardev_fd = open(GPIO_CHARDEV_PATH, O_RDONLY);
+    if (gpio_chardev_fd < 0) {
+        fprintf(stderr, "Failed to open gpio device \"%s\": %s\n", GPIO_CHARDEV_PATH, strerror(errno));
+        goto exit;
+    }
+    
+    strncpy(request.consumer, "buttons", GPIO_MAX_NAME_SIZE);
+    request.offsets[0] = BUTTON_PIN_LEFT;
+    request.offsets[1] = BUTTON_PIN_MID;
+    request.offsets[2] = BUTTON_PIN_RIGHT;
+    request.num_lines = 3;
+    request.config.flags =
+        GPIO_V2_LINE_FLAG_INPUT |
+        GPIO_V2_LINE_FLAG_EDGE_FALLING |
+        GPIO_V2_LINE_FLAG_EDGE_RISING;
+    request.config.attrs[0].mask = 0b111;
+    request.config.attrs[0].attr.id = GPIO_V2_LINE_ATTR_ID_DEBOUNCE;
+    request.config.attrs[0].attr.debounce_period_us = DEBOUNCE_PERIOD_US;
+    request.config.num_attrs = 1;
+
+    if (ioctl(gpio_chardev_fd, GPIO_V2_GET_LINE_IOCTL, &request) < 0) {
+        fprintf(stderr, "Failed to get gpio line handle with GPIO_V2_GET_LINE_IOCTL: %s", strerror(errno));
+        goto exit_close_gpio_chardev;
+    }
+    
+    lines_fd = request.fd;
+
+exit_close_gpio_chardev:
+    if (close(gpio_chardev_fd) < 0) {
+        fprintf(stderr, "Failed to close gpio device \"%s\": %s\n", GPIO_CHARDEV_PATH, strerror(errno));
+    }
+
+exit:
+    return lines_fd;
+}
+
 time_t nanoTimestamp() {
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
@@ -131,7 +175,7 @@ time_t nanoTimestamp() {
 }
 
 int main(int argc, char **argv) {
-    int gpio_fd;
+    int leds_fd, buttons_fd, buzzer_fd;
     time_t cur_time, last_time, elapsed_time;
     Choice sequence[MAX_SEQUENCE_LEN];
     int sequence_len;
@@ -144,8 +188,14 @@ int main(int argc, char **argv) {
 
     srand(time(NULL));
 
-    gpio_fd = initGpio();
-    if (gpio_fd < 0) goto exit;
+    leds_fd = initLeds();
+    if (leds_fd < 0) goto exit;
+    
+    buttons_fd = initButtons();
+    if (buttons_fd < 0) goto exit_close_leds_fd;
+    
+    buzzer_fd = initBuzzer();
+    if (buzzer_fd < 0) goto exit_close_buttons_leds_fd;
     
     // initialize first element in random sequence, set mode to playback
     sequence_len = 0;
@@ -172,14 +222,14 @@ int main(int argc, char **argv) {
                 cur_sequence_index++;
                 if (cur_sequence_index >= sequence_len) {
                     stopTone();
-                    turnOffAllLeds(gpio_fd);
+                    turnOffAllLeds(leds_fd);
                     clearInputEvents();
                     waiting_for_button_release = false;
                     game_state = game_state_input;
                 } else {
                     startTone(sequence[cur_sequence_index]);
-                    turnOffAllLeds(gpio_fd);
-                    turnOnLed(gpio_fd, sequence[cur_sequence_index]);
+                    turnOffAllLeds(leds_fd);
+                    turnOnLed(leds_fd, sequence[cur_sequence_index]);
                     playback_time_remaining = DEFAULT_PLAYBACK_DELAY;
                 }
             }
@@ -191,8 +241,8 @@ int main(int argc, char **argv) {
                     if (waiting_for_button_release) break;
                     if (input_event.choice == sequence[cur_sequence_index]) {
                         startTone(sequence[cur_sequence_index]);
-                        turnOffAllLeds(gpio_fd);
-                        turnOnLed(gpio_fd, sequence[cur_sequence_index]);
+                        turnOffAllLeds(leds_fd);
+                        turnOnLed(leds_fd, sequence[cur_sequence_index]);
                         waiting_for_button_release = true;
                     } else {
                         game_state = game_state_game_over;
@@ -201,7 +251,7 @@ int main(int argc, char **argv) {
                 case event_button_up:
                     if (waiting_for_button_release && input_event.choice == sequence[cur_sequence_index]) {
                         stopTone();
-                        turnOffAllLeds(gpio_fd);
+                        turnOffAllLeds(leds_fd);
                         waiting_for_button_release = false;
                         cur_sequence_index++;
                         if (cur_sequence_index >= sequence_len) {
@@ -219,9 +269,19 @@ int main(int argc, char **argv) {
         }
     }
 
-exit_close_gpio:
-    if (close(gpio_fd) < 0) {
-        fprintf(stderr, "Failed to close gpio line file: %s\n", strerror(errno));
+exit_close_buzzer_buttons_leds_fd:
+    if (close(buzzer_fd) < 0) {
+        fprintf(stderr, "Failed to close gpio buzzer line file: %s\n", strerror(errno));
+    }
+
+exit_close_buttons_leds_fd:
+    if (close(buttons_fd) < 0) {
+        fprintf(stderr, "Failed to close gpio buttons line file: %s\n", strerror(errno));
+    }
+
+exit_close_leds_fd:
+    if (close(leds_fd) < 0) {
+        fprintf(stderr, "Failed to close gpio LEDs line file: %s\n", strerror(errno));
     }
 
 exit:
