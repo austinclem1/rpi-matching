@@ -1,3 +1,16 @@
+#include <linux/gpio.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+
+#define GPIO_CHIP_PATH "/dev/gpiochip0"
+
+#define LED_PIN_LEFT 2
+#define LED_PIN_MID 3
+#define LED_PIN_RIGHT 4
+#define BUTTON_PIN_LEFT 17
+#define BUTTON_PIN_MID 27
+#define BUTTON_PIN_RIGHT 22
 #define BUZZER_PIN 12
 
 #define DEFAULT_PLAYBACK_DELAY 1000
@@ -20,9 +33,9 @@ typedef enum {
     game_state_game_over,
 } GameState;
 
-static const int ledPins[NUM_CHOICES] = { ?, ?, ? };
+static const int ledPins[NUM_CHOICES] = { LED_PIN_LEFT, LED_PIN_MID, LED_PIN_RIGHT };
+static const int buttonPins[NUM_CHOICES] = { BUTTON_PIN_LEFT, BUTTON_PIN_MID, BUTTON_PIN_RIGHT };
 static const int freqs[NUM_CHOICES] = { 440, 550, 660 };
-static const int buttonPins[NUM_CHOICES] = { ?, ?, ? };
 
 void startTone(Choice choice) {
     const int freq = freqs[choice];
