@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #define GPIO_CHARDEV_PATH "/dev/gpiochip0"
+#define PWM_DEV_PATH "/sys/class/pwm/pwmchip0"
 
 #define LED_PIN_LEFT 2
 #define LED_PIN_MID 3
@@ -172,6 +173,11 @@ time_t nanoTimestamp() {
     clock_gettime(CLOCK_REALTIME, &ts);
 
     return (ts.tv_sec * NS_PER_SEC) + ts.tv_nsec;
+}
+
+int initBuzzer() {
+    return -1;
+    // return open(PWM_DEV_PATH, O_RDWR);
 }
 
 int main(int argc, char **argv) {
