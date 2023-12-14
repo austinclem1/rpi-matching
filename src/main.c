@@ -13,7 +13,9 @@
 #define MAX_SEQUENCE_LEN 2000
 
 int main(void) {
-    int leds_fd, buttons_fd, buzzer_fd;
+    LedsDevice leds_dev;
+    InputDevice input_dev;
+    SoundDevice sound_dev;
     time_t cur_time, last_time, elapsed_time;
     Choice sequence[MAX_SEQUENCE_LEN];
     int sequence_len;
@@ -26,14 +28,9 @@ int main(void) {
 
     srand(time(NULL));
 
-    leds_fd = initLeds();
-    if (leds_fd < 0) goto exit;
-    
-    buttons_fd = initButtons();
-    if (buttons_fd < 0) goto exit_close_leds_fd;
-    
-    buzzer_fd = initBuzzer();
-    if (buzzer_fd < 0) goto exit_close_buttons_leds_fd;
+    if (!initLeds(&leds_dev)) goto exit;
+    if (!initInput(&input_dev)) goto exit_deinit_leds;
+    if (!initSound(&sound_dev)) goto exit_deinit_input_deinit_leds;
     
     // initialize first element in random sequence, set mode to playback
     sequence_len = 0;
@@ -59,28 +56,28 @@ int main(void) {
             if (playback_time_remaining <= 0) {
                 cur_sequence_index++;
                 if (cur_sequence_index >= sequence_len) {
-                    stopTone();
-                    turnOffAllLeds(leds_fd);
-                    clearInputEvents();
+                    stopTone(&sound_dev);
+                    turnOffAllLeds(&leds_dev);
+                    clearInputEvents(&input_dev);
                     waiting_for_button_release = false;
                     game_state = game_state_input;
                 } else {
-                    startTone(sequence[cur_sequence_index]);
-                    turnOffAllLeds(leds_fd);
-                    turnOnLed(leds_fd, sequence[cur_sequence_index]);
+                    startTone(&sound_dev, sequence[cur_sequence_index]);
+                    turnOffAllLeds(&leds_dev);
+                    turnOnLed(&leds_dev, sequence[cur_sequence_index]);
                     playback_time_remaining = DEFAULT_PLAYBACK_DELAY;
                 }
             }
             break;
         case game_state_input:
-            if (pollInput(&input_event)) {
+            if (pollInput(&input_dev, &input_event)) {
                 switch (input_event.type) {
                 case event_button_down:
                     if (waiting_for_button_release) break;
                     if (input_event.choice == sequence[cur_sequence_index]) {
-                        startTone(sequence[cur_sequence_index]);
-                        turnOffAllLeds(leds_fd);
-                        turnOnLed(leds_fd, sequence[cur_sequence_index]);
+                        startTone(&sound_dev, sequence[cur_sequence_index]);
+                        turnOffAllLeds(&leds_dev);
+                        turnOnLed(&leds_dev, sequence[cur_sequence_index]);
                         waiting_for_button_release = true;
                     } else {
                         game_state = game_state_game_over;
@@ -88,8 +85,8 @@ int main(void) {
                     break;
                 case event_button_up:
                     if (waiting_for_button_release && input_event.choice == sequence[cur_sequence_index]) {
-                        stopTone();
-                        turnOffAllLeds(leds_fd);
+                        stopTone(&sound_dev);
+                        turnOffAllLeds(&leds_dev);
                         waiting_for_button_release = false;
                         cur_sequence_index++;
                         if (cur_sequence_index >= sequence_len) {
@@ -106,21 +103,15 @@ int main(void) {
             break;
         }
     }
+    
+exit_deinit_sound_deinit_input_deinit_leds:
+    deinitSound(&sound_dev);
 
-exit_close_buzzer_buttons_leds_fd:
-    if (close(buzzer_fd) < 0) {
-        fprintf(stderr, "Failed to close gpio buzzer line file: %s\n", strerror(errno));
-    }
+exit_deinit_input_deinit_leds:
+    deinitInput(&input_dev);
 
-exit_close_buttons_leds_fd:
-    if (close(buttons_fd) < 0) {
-        fprintf(stderr, "Failed to close gpio buttons line file: %s\n", strerror(errno));
-    }
-
-exit_close_leds_fd:
-    if (close(leds_fd) < 0) {
-        fprintf(stderr, "Failed to close gpio LEDs line file: %s\n", strerror(errno));
-    }
+exit_deinit_leds:
+    deinitLeds(&leds_dev);
 
 exit:
     return 0;

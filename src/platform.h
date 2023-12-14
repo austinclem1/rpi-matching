@@ -6,17 +6,32 @@
 
 #include "game.h"
 
-int initLeds(void);
-void turnOnLed(int fd, Choice choice);
-void turnOffAllLeds(int fd);
+typedef struct {
+    int fd;
+} LedsDevice;
 
-int initButtons(void);
-bool pollInput(InputEvent *ev_out);
-void clearInputEvents(void);
+typedef struct {
+    int fd;
+} InputDevice;
 
-int initBuzzer(void);
-void startTone(Choice choice);
-void stopTone(void);
+typedef struct {
+    int fd;
+} SoundDevice;
+
+bool initLeds(LedsDevice *dev_out);
+void turnOnLed(LedsDevice *dev, Choice choice);
+void turnOffAllLeds(LedsDevice *dev);
+void deinitLeds(LedsDevice *dev);
+
+bool initInput(InputDevice *dev_out);
+bool pollInput(InputDevice *dev, InputEvent *ev_out);
+void clearInputEvents(InputDevice *dev);
+void deinitInput(InputDevice *dev);
+
+bool initSound(SoundDevice *dev_out);
+void startTone(SoundDevice *dev, Choice choice);
+void stopTone(SoundDevice *dev);
+void deinitSound(SoundDevice *dev);
 
 time_t nanoTimestamp(void);
 
