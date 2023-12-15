@@ -9,7 +9,7 @@
 #include <time.h>
 
 #include "game.h"
-#include "platform.h"
+#include "platform_raspberrypi_linux.h"
 
 #define GPIO_CHARDEV_PATH "/dev/gpiochip0"
 #define PWM_DEV_PATH "/sys/class/pwm/pwmchip0"
@@ -29,7 +29,6 @@
 static const int ledPins[NUM_CHOICES] = { LED_PIN_LEFT, LED_PIN_MID, LED_PIN_RIGHT };
 static const int buttonPins[NUM_CHOICES] = { BUTTON_PIN_LEFT, BUTTON_PIN_MID, BUTTON_PIN_RIGHT };
 static const int freqs[NUM_CHOICES] = { 440, 550, 660 };
-
 
 bool initLeds(LedsDevice *dev_out) {
     bool success = false;

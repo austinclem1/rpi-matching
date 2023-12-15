@@ -5,18 +5,11 @@
 #include <time.h>
 
 #include "game.h"
+#include "platform_raspberrypi_linux.h"
 
-typedef struct {
-    int fd;
-} LedsDevice;
-
-typedef struct {
-    int fd;
-} InputDevice;
-
-typedef struct {
-    int fd;
-} SoundDevice;
+typedef struct LedsDevice LedsDevice;
+typedef struct InputDevice InputDevice;
+typedef struct SoundDevice SoundDevice;
 
 bool initLeds(LedsDevice *dev_out);
 void turnOnLed(LedsDevice *dev, Choice choice);
