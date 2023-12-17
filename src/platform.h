@@ -5,23 +5,22 @@
 #include <time.h>
 
 #include "game.h"
-#include "platform_raspberrypi_linux.h"
 
 typedef struct LedsDevice LedsDevice;
 typedef struct InputDevice InputDevice;
 typedef struct SoundDevice SoundDevice;
 
-bool initLeds(LedsDevice *dev_out);
+LedsDevice *initLeds(void);
 void turnOnLed(LedsDevice *dev, Choice choice);
 void turnOffAllLeds(LedsDevice *dev);
 void deinitLeds(LedsDevice *dev);
 
-bool initInput(InputDevice *dev_out);
+InputDevice *initInput(void);
 bool pollInput(InputDevice *dev, InputEvent *ev_out);
 void clearInputEvents(InputDevice *dev);
 void deinitInput(InputDevice *dev);
 
-bool initSound(SoundDevice *dev_out);
+SoundDevice *initSound(void);
 void startTone(SoundDevice *dev, Choice choice);
 void stopTone(SoundDevice *dev);
 void deinitSound(SoundDevice *dev);

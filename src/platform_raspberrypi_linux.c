@@ -4,12 +4,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <time.h>
 
 #include "game.h"
-#include "platform_raspberrypi_linux.h"
+#include "platform.h"
 
 #define GPIO_CHARDEV_PATH "/dev/gpiochip0"
 #define PWM_DEV_PATH "/sys/class/pwm/pwmchip0"
@@ -26,20 +27,34 @@
 
 #define NS_PER_SEC 1000000000
 
+typedef struct LedsDevice {
+    int fd;
+} LedsDevice;
+
+typedef struct InputDevice {
+    int fd;
+} InputDevice;
+
+typedef struct SoundDevice {
+    int fd;
+} SoundDevice;
+
 static const int ledPins[NUM_CHOICES] = { LED_PIN_LEFT, LED_PIN_MID, LED_PIN_RIGHT };
 static const int buttonPins[NUM_CHOICES] = { BUTTON_PIN_LEFT, BUTTON_PIN_MID, BUTTON_PIN_RIGHT };
 static const int freqs[NUM_CHOICES] = { 440, 550, 660 };
 
-bool initLeds(LedsDevice *dev_out) {
-    bool success = false;
+LedsDevice *initLeds(void) {
+    LedsDevice *result_dev = NULL;
     int gpio_chardev_fd;
     struct gpio_v2_line_request request = { 0 };
 
-    dev_out->fd = -1;
+    result_dev = (LedsDevice *) malloc(sizeof(LedsDevice));
+    if (result_dev == NULL) goto exit;
     
     gpio_chardev_fd = open(GPIO_CHARDEV_PATH, O_RDONLY);
     if (gpio_chardev_fd < 0) {
         fprintf(stderr, "Failed to open gpio device \"%s\": %s\n", GPIO_CHARDEV_PATH, strerror(errno));
+        result_dev = NULL;
         goto exit;
     }
     
@@ -52,11 +67,11 @@ bool initLeds(LedsDevice *dev_out) {
 
     if (ioctl(gpio_chardev_fd, GPIO_V2_GET_LINE_IOCTL, &request) < 0) {
         fprintf(stderr, "Failed to get gpio line handle with GPIO_V2_GET_LINE_IOCTL: %s", strerror(errno));
+        result_dev = NULL;
         goto exit_close_gpio_chardev;
     }
     
-    dev_out->fd = request.fd;
-    success = true;
+    result_dev->fd = request.fd;
 
 exit_close_gpio_chardev:
     if (close(gpio_chardev_fd) < 0) {
@@ -64,7 +79,7 @@ exit_close_gpio_chardev:
     }
 
 exit:
-    return success;
+    return result_dev;
 }
 
 void turnOnLed(LedsDevice *dev, Choice choice) {
@@ -94,18 +109,22 @@ void deinitLeds(LedsDevice *dev) {
     if (ret < 0) {
         fprintf(stderr, "Failed to close gpio LEDs line file: %s\n", strerror(errno));
     }
+
+    free(dev);
 }
 
-bool initInput(InputDevice *dev_out) {
-    bool success = false;
+InputDevice *initInput(void) {
+    InputDevice *result_dev = NULL;
     int gpio_chardev_fd;
     struct gpio_v2_line_request request = { 0 };
 
-    dev_out->fd = -1;
+    result_dev = (InputDevice *) malloc(sizeof(InputDevice));
+    if (result_dev == NULL) goto exit;
     
     gpio_chardev_fd = open(GPIO_CHARDEV_PATH, O_RDONLY);
     if (gpio_chardev_fd < 0) {
         fprintf(stderr, "Failed to open gpio device \"%s\": %s\n", GPIO_CHARDEV_PATH, strerror(errno));
+        result_dev = NULL;
         goto exit;
     }
     
@@ -125,11 +144,11 @@ bool initInput(InputDevice *dev_out) {
 
     if (ioctl(gpio_chardev_fd, GPIO_V2_GET_LINE_IOCTL, &request) < 0) {
         fprintf(stderr, "Failed to get gpio line handle with GPIO_V2_GET_LINE_IOCTL: %s", strerror(errno));
+        result_dev = NULL;
         goto exit_close_gpio_chardev;
     }
     
-    dev_out->fd = request.fd;
-    success = true;
+    result_dev->fd = request.fd;
 
 exit_close_gpio_chardev:
     if (close(gpio_chardev_fd) < 0) {
@@ -137,7 +156,7 @@ exit_close_gpio_chardev:
     }
 
 exit:
-    return success;
+    return result_dev;
 }
 
 bool pollInput(InputDevice *dev, InputEvent *ev_out) {
@@ -155,10 +174,12 @@ void deinitInput(InputDevice *dev) {
     if (ret < 0) {
         fprintf(stderr, "Failed to close gpio buttons line file: %s\n", strerror(errno));
     }
+
+    free(dev);
 }
 
-bool initSound(SoundDevice *dev_out) {
-    return true;
+SoundDevice *initSound(void) {
+    return (SoundDevice *) malloc(sizeof(SoundDevice));
 }
 
 void startTone(SoundDevice *dev, Choice choice) {
@@ -169,7 +190,9 @@ void startTone(SoundDevice *dev, Choice choice) {
 
 void stopTone(SoundDevice *dev) {}
 
-void deinitSound(SoundDevice *dev) {}
+void deinitSound(SoundDevice *dev) {
+    free(dev);
+}
 
 time_t nanoTimestamp(void) {
     struct timespec ts;
