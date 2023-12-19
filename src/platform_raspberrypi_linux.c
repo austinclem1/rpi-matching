@@ -25,8 +25,6 @@
 
 #define DEBOUNCE_PERIOD_US 10000
 
-#define NS_PER_SEC 1000000000
-
 typedef struct LedsDevice {
     int fd;
 } LedsDevice;

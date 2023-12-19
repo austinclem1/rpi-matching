@@ -1,6 +1,8 @@
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
+#define NS_PER_SEC 1000000000
+
 #include <stdbool.h>
 #include <time.h>
 
