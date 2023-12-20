@@ -12,9 +12,16 @@ typedef struct LedsDevice {
     bool right_led_on;
 } LedsDevice;
 
+typedef enum {
+    input_state_idle,
+    input_state_held,
+    INPUT_STATE_COUNT,
+} InputState;
+
 typedef struct InputDevice {
-    bool button_is_down[NUM_CHOICES];
-    time_t button_time_when_pressed[NUM_CHOICES];
+    InputState state;
+    time_t time_when_pressed;
+    Choice last_button_pressed;
 } InputDevice;
 
 typedef struct SoundDevice {} SoundDevice;
@@ -85,7 +92,8 @@ InputDevice *initInput(void) {
     term_attr.c_lflag &= ~(ICANON | ECHO);
     tcsetattr(STDIN_FILENO, TCSANOW, &term_attr);
 
-    *result_dev = (InputDevice){ 0 };
+    result_dev->state = input_state_idle;
+    result_dev->time_when_pressed = 0;
 
 exit:
     return result_dev;
@@ -99,41 +107,45 @@ bool pollInput(InputDevice *dev, InputEvent *ev_out) {
     bool received_input = false;
     Choice choice;
 
-    for (int i = 0; i < NUM_CHOICES; i++) {
-        if (dev->button_is_down[i] == false) continue;
-        
-        elapsed = nanoTimestamp() - dev->button_time_when_pressed[i];
-        if (elapsed < simulated_press_len) continue;
-        
-        ev_out->type = event_button_up;
-        ev_out->choice = i;
-        dev->button_is_down[i] = false;
-        received_input = true;
-        return received_input;
-    }
-
-    nread = read(STDIN_FILENO, buf, 1);
-    if (nread > 0) {
-        switch (buf[0]) {
-        case '1':
-            choice = choice_left;
-            break;
-        case '2':
-            choice = choice_mid;
-            break;
-        case '3':
-            choice = choice_right;
-            break;
-        default:
-            choice = -1;
+    switch (dev->state) {
+    case input_state_idle:
+        nread = read(STDIN_FILENO, buf, 1);
+        if (nread > 0) {
+            switch (buf[0]) {
+            case '1':
+                choice = choice_left;
+                break;
+            case '2':
+                choice = choice_mid;
+                break;
+            case '3':
+                choice = choice_right;
+                break;
+            default:
+                choice = -1;
+                break;
+            }
+            if (choice >= 0) {
+                ev_out->type = event_button_down;
+                ev_out->choice = choice;
+                dev->time_when_pressed = nanoTimestamp();
+                dev->last_button_pressed = choice;
+                dev->state = input_state_held;
+                received_input = true;
+            }
         }
-        if (choice >= 0) {
-            ev_out->type = event_button_down;
-            ev_out->choice = choice;
-            dev->button_is_down[choice] = true;
-            dev->button_time_when_pressed[choice] = nanoTimestamp();
+        break;
+    case input_state_held:
+        elapsed = nanoTimestamp() - dev->time_when_pressed;
+        if (elapsed >= simulated_press_len) {
+            ev_out->type = event_button_up;
+            ev_out->choice = dev->last_button_pressed;
             received_input = true;
+            dev->state = input_state_idle;
         }
+        break;
+    default:
+        break;
     }
 
     return received_input;
