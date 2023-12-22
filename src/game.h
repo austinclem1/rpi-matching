@@ -18,10 +18,4 @@ typedef struct {
     Choice choice;
 } InputEvent;
 
-typedef enum {
-    game_state_playback,
-    game_state_input,
-    game_state_game_over,
-} GameState;
-
 #endif
