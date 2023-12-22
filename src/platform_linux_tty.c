@@ -35,7 +35,7 @@ static void redrawLeds(LedsDevice *dev) {
         dev->right_led_on ? 'X' : '-');
 }
 
-LedsDevice *initLeds(void) {
+LedsDevice *initLedsDevice(void) {
     LedsDevice *result_dev = NULL;
 
     result_dev = (LedsDevice *) malloc(sizeof(LedsDevice));
@@ -75,11 +75,11 @@ void turnOffAllLeds(LedsDevice *dev) {
     redrawLeds(dev);
 }
 
-void deinitLeds(LedsDevice *dev) {
+void deinitLedsDevice(LedsDevice *dev) {
     free(dev);
 }
 
-InputDevice *initInput(void) {
+InputDevice *initInputDevice(void) {
     struct termios term_attr;
     InputDevice *result_dev = NULL;
 
@@ -155,11 +155,11 @@ void clearInputEvents(InputDevice *dev) {
     tcflush(STDIN_FILENO, TCIFLUSH);
 }
 
-void deinitInput(InputDevice *dev) {
+void deinitInputDevice(InputDevice *dev) {
     free(dev);
 }
 
-SoundDevice *initSound(void) {
+SoundDevice *initSoundDevice(void) {
     return (SoundDevice *) malloc(sizeof(SoundDevice));
 }
 
@@ -171,7 +171,7 @@ void startTone(SoundDevice *dev, Choice choice) {
 
 void stopTone(SoundDevice *dev) {}
 
-void deinitSound(SoundDevice *dev) {
+void deinitSoundDevice(SoundDevice *dev) {
     free(dev);
 }
 

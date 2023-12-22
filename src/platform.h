@@ -12,20 +12,20 @@ typedef struct LedsDevice LedsDevice;
 typedef struct InputDevice InputDevice;
 typedef struct SoundDevice SoundDevice;
 
-LedsDevice *initLeds(void);
+LedsDevice *initLedsDevice(void);
 void turnOnLed(LedsDevice *dev, Choice choice);
 void turnOffAllLeds(LedsDevice *dev);
-void deinitLeds(LedsDevice *dev);
+void deinitLedsDevice(LedsDevice *dev);
 
-InputDevice *initInput(void);
+InputDevice *initInputDevice(void);
 bool pollInput(InputDevice *dev, InputEvent *ev_out);
 void clearInputEvents(InputDevice *dev);
-void deinitInput(InputDevice *dev);
+void deinitInputDevice(InputDevice *dev);
 
-SoundDevice *initSound(void);
+SoundDevice *initSoundDevice(void);
 void startTone(SoundDevice *dev, Choice choice);
 void stopTone(SoundDevice *dev);
-void deinitSound(SoundDevice *dev);
+void deinitSoundDevice(SoundDevice *dev);
 
 time_t nanoTimestamp(void);
 
