@@ -10,7 +10,8 @@
 #include "game.h"
 #include "platform.h"
 
-#define DEFAULT_PLAYBACK_DELAY 500000000
+#define PRE_PLAYBACK_DELAY 1000000000
+#define PLAYBACK_DELAY_BETWEEN 500000000
 #define MAX_SEQUENCE_LEN 2000
 
 typedef enum {
@@ -161,6 +162,9 @@ State startPlaybackMode(StateMachine *machine, Signal signal) {
         machine->sequence[machine->sequence_len] = rand() % NUM_CHOICES;
         machine->sequence_len++;
         machine->cur_sequence_index = 0;
+        StateMachine_startTimer(machine, PRE_PLAYBACK_DELAY);
+        break;
+    case signal_timeout:
         next_state = state_play_elem;
         break;
     default:
@@ -184,7 +188,7 @@ State playElem(StateMachine *machine, Signal signal) {
         elem = machine->sequence[machine->cur_sequence_index];
         turnOnLed(machine->leds_dev, elem);
         startTone(machine->sound_dev, elem);
-        StateMachine_startTimer(machine, DEFAULT_PLAYBACK_DELAY);
+        StateMachine_startTimer(machine, PLAYBACK_DELAY_BETWEEN);
         machine->cur_sequence_index++;
         break;
     case signal_timeout:
@@ -207,7 +211,7 @@ State pauseElem(StateMachine *machine, Signal signal) {
     
     switch (signal) {
     case signal_enter:
-        StateMachine_startTimer(machine, DEFAULT_PLAYBACK_DELAY);
+        StateMachine_startTimer(machine, PLAYBACK_DELAY_BETWEEN);
         break;
     case signal_timeout:
         next_state = state_play_elem;
