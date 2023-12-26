@@ -174,9 +174,7 @@ State playElem(StateMachine *machine, Signal signal) {
     switch (signal) {
     case signal_enter:
         if (machine->cur_sequence_index >= machine->sequence_len) {
-            // TODO this for testing playback
-            next_state = state_start_playback_mode;
-            // next_state = state_start_input_mode;
+            next_state = state_start_input_mode;
             break;
         }
         elem = machine->sequence[machine->cur_sequence_index];
@@ -221,19 +219,63 @@ State startInputMode(StateMachine *machine, Signal signal) {
     State next_state = state_start_input_mode;
     assert(machine->state == next_state);
 
+    switch (signal) {
+    case signal_enter:
+        machine->cur_sequence_index = 0;
+        next_state = state_wait_for_input;
+        break;
+    default:
+        break;
+    }
+
     return next_state;
 }
 
 State waitForInput(StateMachine *machine, Signal signal) {
+    Choice correct_choice = machine->sequence[machine->cur_sequence_index];
     State next_state = state_wait_for_input;
     assert(machine->state == next_state);
+
+    switch (signal) {
+    case signal_input:
+        if (machine->input_event.type != event_button_down) break;
+        next_state = machine->input_event.choice == correct_choice ?
+            state_play_correct_choice :
+            state_play_gameover;
+    default:
+        break;
+    }
 
     return next_state;
 }
 
 State playCorrectChoice(StateMachine *machine, Signal signal) {
+    Choice cur_choice = machine->sequence[machine->cur_sequence_index];
     State next_state = state_play_correct_choice;
     assert(machine->state == next_state);
+
+    switch (signal) {
+    case signal_enter:
+        turnOnLed(machine->leds_dev, cur_choice);
+        startTone(machine->sound_dev, cur_choice);
+        break;
+    case signal_input:
+        if (machine->input_event.type != event_button_up) break;
+        if (machine->input_event.choice != cur_choice) break;
+        machine->cur_sequence_index++;
+        if (machine->cur_sequence_index >= machine->sequence_len) {
+            next_state = state_start_playback_mode;
+        } else {
+            next_state = state_wait_for_input;
+        }
+        break;
+    case signal_exit:
+        turnOffAllLeds(machine->leds_dev);
+        stopTone(machine->sound_dev);
+        break;
+    default:
+        break;
+    }
 
     return next_state;
 }
