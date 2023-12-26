@@ -15,12 +15,12 @@
 #define GPIO_CHARDEV_PATH "/dev/gpiochip0"
 #define PWM_DEV_PATH "/sys/class/pwm/pwmchip0"
 
-#define LED_PIN_LEFT 2
-#define LED_PIN_MID 3
-#define LED_PIN_RIGHT 4
-#define BUTTON_PIN_LEFT 17
-#define BUTTON_PIN_MID 27
-#define BUTTON_PIN_RIGHT 22
+#define LED_PIN_LEFT 17
+#define LED_PIN_MID 27
+#define LED_PIN_RIGHT 22
+#define BUTTON_PIN_LEFT 16
+#define BUTTON_PIN_MID 20
+#define BUTTON_PIN_RIGHT 21
 #define BUZZER_PIN 12
 
 #define DEBOUNCE_PERIOD_US 10000
@@ -41,7 +41,7 @@ static const int ledPins[NUM_CHOICES] = { LED_PIN_LEFT, LED_PIN_MID, LED_PIN_RIG
 static const int buttonPins[NUM_CHOICES] = { BUTTON_PIN_LEFT, BUTTON_PIN_MID, BUTTON_PIN_RIGHT };
 static const int freqs[NUM_CHOICES] = { 440, 550, 660 };
 
-LedsDevice *initLeds(void) {
+LedsDevice *initLedsDevice(void) {
     LedsDevice *result_dev = NULL;
     int gpio_chardev_fd;
     struct gpio_v2_line_request request = { 0 };
@@ -100,7 +100,7 @@ void turnOffAllLeds(LedsDevice *dev) {
     }
 }
 
-void deinitLeds(LedsDevice *dev) {
+void deinitLedsDevice(LedsDevice *dev) {
     int ret;
 
     ret = close(dev->fd);
@@ -111,7 +111,7 @@ void deinitLeds(LedsDevice *dev) {
     free(dev);
 }
 
-InputDevice *initInput(void) {
+InputDevice *initInputDevice(void) {
     InputDevice *result_dev = NULL;
     int gpio_chardev_fd;
     struct gpio_v2_line_request request = { 0 };
@@ -165,7 +165,7 @@ bool pollInput(InputDevice *dev, InputEvent *ev_out) {
 
 void clearInputEvents(InputDevice *dev) {}
 
-void deinitInput(InputDevice *dev) {
+void deinitInputDevice(InputDevice *dev) {
     int ret;
     
     ret = close(dev->fd);
@@ -176,7 +176,7 @@ void deinitInput(InputDevice *dev) {
     free(dev);
 }
 
-SoundDevice *initSound(void) {
+SoundDevice *initSoundDevice(void) {
     return (SoundDevice *) malloc(sizeof(SoundDevice));
 }
 
@@ -188,7 +188,7 @@ void startTone(SoundDevice *dev, Choice choice) {
 
 void stopTone(SoundDevice *dev) {}
 
-void deinitSound(SoundDevice *dev) {
+void deinitSoundDevice(SoundDevice *dev) {
     free(dev);
 }
 
