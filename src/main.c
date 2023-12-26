@@ -116,7 +116,11 @@ bool StateMachine_pollSignal(StateMachine *machine, Signal *signal_out) {
             return true;
         }
     }
-    // TODO: check input
+
+    if (pollInput(machine->input_dev, &machine->input_event)) {
+        *signal_out = signal_input;
+	return true;
+    }
 
     return false;
 }
