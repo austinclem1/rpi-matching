@@ -15,6 +15,7 @@
 #define MAX_SEQUENCE_LEN 2000
 
 typedef enum {
+    state_reset_game,
     state_start_playback_mode,
     state_play_elem,
     state_pause_elem,
@@ -52,6 +53,7 @@ typedef struct {
     bool running;
 } StateMachine;
 
+State resetGame(StateMachine *machine, Signal signal);
 State startPlaybackMode(StateMachine *machine, Signal signal);
 State playElem(StateMachine *machine, Signal signal);
 State pauseElem(StateMachine *machine, Signal signal);
@@ -63,6 +65,7 @@ State playGameover(StateMachine *machine, Signal signal);
 typedef State (*SignalHandler)(StateMachine *, Signal);
 
 static const SignalHandler signal_handlers[STATE_COUNT] = {
+    resetGame,
     startPlaybackMode,
     playElem,
     pauseElem,
@@ -82,11 +85,7 @@ bool StateMachine_init(StateMachine *machine_out) {
     machine_out->sound_dev = initSoundDevice();
     if (machine_out->sound_dev == NULL) goto error_deinit_input_deinit_leds;
 
-    machine_out->sequence_len = 0;
-
-    machine_out->timer.active = false;
-
-    machine_out->state = state_start_playback_mode;
+    machine_out->state = state_reset_game;
     machine_out->running = true;
 
     return true;
@@ -151,6 +150,23 @@ void StateMachine_startTimer(StateMachine *machine, time_t duration) {
     machine->timer.duration = duration;
     machine->timer.started_at = nanoTimestamp();
     machine->timer.active = true;
+}
+
+State resetGame(StateMachine *machine, Signal signal) {
+    State next_state = state_reset_game;
+    assert(machine->state == next_state);
+
+    switch (signal) {
+    case signal_enter:
+        machine->sequence_len = 0;
+        machine->timer.active = false;
+        next_state = state_start_playback_mode;
+        break;
+    default:
+        break;
+    }
+
+    return next_state;
 }
 
 State startPlaybackMode(StateMachine *machine, Signal signal) {
@@ -291,6 +307,8 @@ State playCorrectChoice(StateMachine *machine, Signal signal) {
 State playGameover(StateMachine *machine, Signal signal) {
     State next_state = state_play_gameover;
     assert(machine->state == next_state);
+
+    next_state = state_reset_game;
 
     return next_state;
 }
