@@ -1,6 +1,7 @@
 #include <linux/gpio.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -18,9 +19,9 @@
 #define LED_PIN_LEFT 17
 #define LED_PIN_MID 27
 #define LED_PIN_RIGHT 22
-#define BUTTON_PIN_LEFT 16
-#define BUTTON_PIN_MID 20
-#define BUTTON_PIN_RIGHT 21
+#define BUTTON_PIN_LEFT 13
+#define BUTTON_PIN_MID 19
+#define BUTTON_PIN_RIGHT 26
 #define BUZZER_PIN 12
 
 #define DEBOUNCE_PERIOD_US 10000
@@ -37,8 +38,6 @@ typedef struct SoundDevice {
     int fd;
 } SoundDevice;
 
-static const int ledPins[NUM_CHOICES] = { LED_PIN_LEFT, LED_PIN_MID, LED_PIN_RIGHT };
-static const int buttonPins[NUM_CHOICES] = { BUTTON_PIN_LEFT, BUTTON_PIN_MID, BUTTON_PIN_RIGHT };
 static const int freqs[NUM_CHOICES] = { 440, 550, 660 };
 
 LedsDevice *initLedsDevice(void) {
@@ -125,7 +124,7 @@ InputDevice *initInputDevice(void) {
         result_dev = NULL;
         goto exit;
     }
-    
+
     strncpy(request.consumer, "buttons", GPIO_MAX_NAME_SIZE);
     request.offsets[0] = BUTTON_PIN_LEFT;
     request.offsets[1] = BUTTON_PIN_MID;
@@ -134,7 +133,8 @@ InputDevice *initInputDevice(void) {
     request.config.flags =
         GPIO_V2_LINE_FLAG_INPUT |
         GPIO_V2_LINE_FLAG_EDGE_FALLING |
-        GPIO_V2_LINE_FLAG_EDGE_RISING;
+        GPIO_V2_LINE_FLAG_EDGE_RISING |
+        GPIO_V2_LINE_FLAG_BIAS_PULL_UP;
     request.config.attrs[0].mask = 0b111;
     request.config.attrs[0].attr.id = GPIO_V2_LINE_ATTR_ID_DEBOUNCE;
     request.config.attrs[0].attr.debounce_period_us = DEBOUNCE_PERIOD_US;
@@ -158,8 +158,41 @@ exit:
 }
 
 bool pollInput(InputDevice *dev, InputEvent *ev_out) {
-    ev_out->type = event_button_down;
-    ev_out->choice = choice_left;
+    struct pollfd poll_fd = { 0 };
+    struct gpio_v2_line_event event;
+    int ret;
+
+    poll_fd.fd = dev->fd;
+    poll_fd.events = POLLIN;
+
+    ret = poll(&poll_fd, 1, 0);
+    if (ret < 1) return false;
+
+    ret = read(dev->fd, &event, sizeof(event));
+    if (ret == -1) return false;
+    if (ret != sizeof(event)) return false;
+    switch (event.offset) {
+    case BUTTON_PIN_LEFT:
+        ev_out->choice = choice_left;
+        break;
+    case BUTTON_PIN_MID:
+        ev_out->choice = choice_mid;
+        break;
+    case BUTTON_PIN_RIGHT:
+        ev_out->choice = choice_right;
+        break;
+    default:
+        return false;
+        break;
+    }
+    switch (event.id) {
+    case GPIO_V2_LINE_EVENT_FALLING_EDGE:
+        ev_out->type = event_button_down;
+        break;
+    case GPIO_V2_LINE_EVENT_RISING_EDGE:
+        ev_out->type = event_button_up;
+        break;
+    }
     return true;
 }
 
@@ -177,18 +210,55 @@ void deinitInputDevice(InputDevice *dev) {
 }
 
 SoundDevice *initSoundDevice(void) {
+    FILE *file;
+    file = fopen("/sys/class/pwm/pwmchip0/export", "w");
+    fputs("0", file);
+    fclose(file);
     return (SoundDevice *) malloc(sizeof(SoundDevice));
 }
 
 void startTone(SoundDevice *dev, Choice choice) {
+    FILE *file;
     const int freq = freqs[choice];
     const int period_ns = NS_PER_SEC / freq;
     const int duty_cycle_ns = period_ns / 2;
+
+    {
+        file = fopen("/sys/class/pwm/pwmchip0/pwm0/period", "w");
+        if (file == NULL) goto end;
+        fprintf(file, "%d", period_ns);
+        fclose(file);
+    }
+    {
+        file = fopen("/sys/class/pwm/pwmchip0/pwm0/duty_cycle", "w");
+        if (file == NULL) goto end;
+        fprintf(file, "%d", duty_cycle_ns);
+        fclose(file);
+    }
+    {
+        file = fopen("/sys/class/pwm/pwmchip0/pwm0/enable", "w");
+        if (file == NULL) goto end;
+        fputs("1", file);
+        fclose(file);
+    }
+
+end:
+        return;
 }
 
-void stopTone(SoundDevice *dev) {}
+void stopTone(SoundDevice *dev) {
+    FILE *file;
+    file = fopen("/sys/class/pwm/pwmchip0/pwm0/enable", "w");
+    if (file == NULL) return;
+    fputs("0", file);
+    fclose(file);
+}
 
 void deinitSoundDevice(SoundDevice *dev) {
+    FILE *file;
+    file = fopen("/sys/class/pwm/pwmchip0/unexport", "w");
+    fputs("0", file);
+    fclose(file);
     free(dev);
 }
 
